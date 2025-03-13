@@ -16,7 +16,7 @@ class Program
 
 			Log.Logger = new LoggerConfiguration()
 				.WriteTo.Console()
-				.WriteTo.File(args[0], rollingInterval: RollingInterval.Day) // Logs to file
+				.WriteTo.File(args[0], rollingInterval: RollingInterval.Day)
 				.CreateLogger();
 
 			Stopwatch sw = new Stopwatch();
@@ -42,6 +42,10 @@ class Program
 
 	private static void Sync(string sourceFolderPath, string replicaFolderPath)
 	{
+		if (!Directory.Exists(sourceFolderPath))
+		{
+			throw new DirectoryNotFoundException($"Source folder not found: {sourceFolderPath}");
+		}
 		Log.Information($"Source Folder: {sourceFolderPath}");
 		Log.Information($"Replica Folder: {replicaFolderPath}");
 		Log.Information($"Synchronizing...");
