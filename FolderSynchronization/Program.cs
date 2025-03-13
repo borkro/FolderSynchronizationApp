@@ -2,66 +2,171 @@
 using System.Diagnostics;
 using Serilog;
 
-namespace Test_Task
+class Program
 {
-	class Program {
-		
-		private void Run(string sourceFolderPath, string replicaFolderPath) {
-			Log.Information($"Source Folder: {sourceFolderPath}");
-			Log.Information($"Replica Folder: {replicaFolderPath}");
-			// start with a simple file copy
-			try
+	static void Main(string[] args)
+	{
+		try
+		{
+			if (args.Length < 2)
 			{
-				File.Copy(sourceFolderPath, replicaFolderPath, true);
-				Log.Information($"File {sourceFolderPath} copied successfully to {replicaFolderPath}.");
+				Console.WriteLine("Usage: program.exe <logFilePath> <sourceFolderPath> <replicaFolderPath>");
+				return;
 			}
-			catch (IOException ex)
+
+			Log.Logger = new LoggerConfiguration()
+				.WriteTo.Console()
+				.WriteTo.File(args[0], rollingInterval: RollingInterval.Day) // Logs to file
+				.CreateLogger();
+
+			Stopwatch sw = new Stopwatch();
+			sw.Start();
+
+			Sync(args[1], args[2]);
+
+			sw.Stop();
+			TimeSpan ts = sw.Elapsed;
+
+			string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+			Log.Information($"Runtime: {elapsedTime}.");
+		}
+		catch (Exception ex)
+		{
+			Log.Fatal(ex, "Application error.");
+		}
+		finally
+		{
+			Log.CloseAndFlush();
+		}
+	}
+
+	private static void Sync(string sourceFolderPath, string replicaFolderPath)
+	{
+		Log.Information($"Source Folder: {sourceFolderPath}");
+		Log.Information($"Replica Folder: {replicaFolderPath}");
+		Log.Information($"Synchronizing...");
+		SyncFolders(sourceFolderPath, replicaFolderPath);
+		Log.Information($"Synchronization complete!");
+	}
+
+	private static void SyncFiles(string sourceFolderPath, string replicaFolderPath)
+	{
+		try
+		{
+			foreach (string sourceFilePath in Directory.GetFiles(sourceFolderPath))
 			{
-				Log.Error(ex, $"Error copying file {sourceFolderPath} to {replicaFolderPath}.");
-			}
-			catch (UnauthorizedAccessException ex)
-			{
-				Log.Error(ex, "Permission denied.");
-			}
-			catch (Exception ex)
-			{
-				Log.Error(ex, "Unexpected error.");
+				string fileName = Path.GetFileName(sourceFilePath);
+				string replicaFilePath = Path.Combine(replicaFolderPath, fileName);
+				Log.Information($"Copying file {fileName}...");
+				File.Copy(sourceFilePath, replicaFilePath, true);
+				Log.Information($"Copied file {fileName}!");
 			}
 		}
-		
-		static void Main(string[] args) {
-			try
+		catch (IOException ex)
+		{
+			Log.Error(ex, "Error copying files.");
+		}
+		catch (UnauthorizedAccessException ex)
+		{
+			Log.Error(ex, "Permission denied.");
+		}
+		catch (Exception ex)
+		{
+			Log.Error(ex, "Unexpected error.");
+		}
+	}
+
+	private static void SyncFolders(string sourceFolderPath, string replicaFolderPath)
+	{
+		try
+		{
+			if (!Directory.Exists(replicaFolderPath))
 			{
-				if (args.Length < 2)
+				Directory.CreateDirectory(replicaFolderPath);
+			}
+			SyncFiles(sourceFolderPath, replicaFolderPath);
+			DeleteFiles(sourceFolderPath, replicaFolderPath);
+			DeleteFolders(sourceFolderPath, replicaFolderPath);
+			foreach (string sourceSubfolderPath in Directory.GetDirectories(sourceFolderPath))
+			{
+				string subfolderName = Path.GetFileName(sourceSubfolderPath);
+				string replicaSubfolderPath = Path.Combine(replicaFolderPath, subfolderName);
+				Log.Information($"Copying folder {subfolderName}...");
+				SyncFolders(sourceSubfolderPath, replicaSubfolderPath);
+				Log.Information($"Copied folder {subfolderName}!");
+			}
+		}
+		catch (IOException ex)
+		{
+			Log.Error(ex, "Error copying folder.");
+		}
+		catch (UnauthorizedAccessException ex)
+		{
+			Log.Error(ex, "Permission denied.");
+		}
+		catch (Exception ex)
+		{
+			Log.Error(ex, "Unexpected error.");
+		}
+	}
+
+	private static void DeleteFiles(string sourceFolderPath, string replicaFolderPath)
+	{
+		try
+		{
+			foreach (string replicaFilePath in Directory.GetFiles(replicaFolderPath))
+			{
+				string fileName = Path.GetFileName(replicaFilePath);
+				string sourceFilePath = Path.Combine(sourceFolderPath, fileName);
+				if (!File.Exists(sourceFilePath))
 				{
-					Console.WriteLine("Usage: program.exe <logFilePath> <sourceFolderPath> <replicaFolderPath>");
-					return;
+					Log.Information($"Deleting file {fileName}...");
+					File.Delete(replicaFilePath);
+					Log.Information($"Deleted file {fileName}!");
 				}
-
-				Log.Logger = new LoggerConfiguration()
-					.WriteTo.Console()
-					.WriteTo.File(args[0], rollingInterval: RollingInterval.Day) // Logs to file
-					.CreateLogger();
-
-				Stopwatch sw = new Stopwatch();
-				sw.Start();
-
-				new Program().Run(args[1], args[2]);
-
-				sw.Stop();
-				TimeSpan ts = sw.Elapsed;
-
-				string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
-				Log.Information($"Runtime: {elapsedTime}.");
 			}
-			catch (Exception ex)
+		}
+		catch (IOException ex)
+		{
+			Log.Error(ex, "Error deleting file.");
+		}
+		catch (UnauthorizedAccessException ex)
+		{
+			Log.Error(ex, "Permission denied.");
+		}
+		catch (Exception ex)
+		{
+			Log.Error(ex, "Unexpected error.");
+		}
+	}
+
+	private static void DeleteFolders(string sourceFolderPath, string replicaFolderPath)
+	{
+		try
+		{
+			foreach (string replicaSubfolderPath in Directory.GetDirectories(replicaFolderPath))
 			{
-				Log.Fatal(ex, "Application error.");
+				string subfolderName = Path.GetFileName(replicaSubfolderPath);
+				string sourceSubfolderPath = Path.Combine(sourceFolderPath, subfolderName);
+				if (!Directory.Exists(sourceSubfolderPath))
+				{
+					Log.Information($"Deleting folder {subfolderName}...");
+					Directory.Delete(replicaSubfolderPath, true);
+					Log.Information($"Deleted folder {subfolderName}!");
+				}
 			}
-			finally
-			{
-				Log.CloseAndFlush();
-			}
+		}
+		catch (IOException ex)
+		{
+			Log.Error(ex, "Error deleting folder.");
+		}
+		catch (UnauthorizedAccessException ex)
+		{
+			Log.Error(ex, "Permission denied.");
+		}
+		catch (Exception ex)
+		{
+			Log.Error(ex, "Unexpected error.");
 		}
 	}
 }
