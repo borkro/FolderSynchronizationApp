@@ -66,41 +66,6 @@ class Program
 		Log.Information($"Synchronization complete!");
 	}
 
-	private static void SyncFiles(string sourceFolderPath, string replicaFolderPath)
-	{
-
-		foreach (string sourceFilePath in Directory.GetFiles(sourceFolderPath))
-		{
-			string fileName = Path.GetFileName(sourceFilePath);
-			string replicaFilePath = Path.Combine(replicaFolderPath, fileName);
-			try
-			{
-				if (!File.Exists(replicaFilePath) || File.GetLastWriteTime(sourceFilePath) > File.GetLastWriteTime(replicaFilePath))
-				{
-					Log.Information($"Copying file {fileName}...");
-					File.Copy(sourceFilePath, replicaFilePath, true);
-					Log.Information($"Copied file {fileName}!");
-				}
-				else
-				{
-					Log.Information($"File {fileName} unchanged.");
-				}
-			}
-			catch (IOException ex)
-			{
-				Log.Error(ex, "Error copying files.");
-			}
-			catch (UnauthorizedAccessException ex)
-			{
-				Log.Error(ex, "Permission denied.");
-			}
-			catch (Exception ex)
-			{
-				Log.Error(ex, "Unexpected error.");
-			}
-		}
-	}
-
 	private static void SyncFolders(string sourceFolderPath, string replicaFolderPath)
 	{
 
@@ -108,7 +73,9 @@ class Program
 		{
 			if (!Directory.Exists(replicaFolderPath))
 			{
+				Log.Information($"Creating folder {replicaFolderPath}...");
 				Directory.CreateDirectory(replicaFolderPath);
+				Log.Information($"Created folder {replicaFolderPath}!");
 			}
 		}
 		catch (IOException ex)
@@ -149,7 +116,41 @@ class Program
 				Log.Error(ex, "Unexpected error.");
 			}
 		}
+	}
 
+	private static void SyncFiles(string sourceFolderPath, string replicaFolderPath)
+	{
+
+		foreach (string sourceFilePath in Directory.GetFiles(sourceFolderPath))
+		{
+			string fileName = Path.GetFileName(sourceFilePath);
+			string replicaFilePath = Path.Combine(replicaFolderPath, fileName);
+			try
+			{
+				if (!File.Exists(replicaFilePath) || File.GetLastWriteTime(sourceFilePath) > File.GetLastWriteTime(replicaFilePath))
+				{
+					Log.Information($"Copying file {fileName}...");
+					File.Copy(sourceFilePath, replicaFilePath, true);
+					Log.Information($"Copied file {fileName}!");
+				}
+				else
+				{
+					Log.Information($"File {fileName} unchanged.");
+				}
+			}
+			catch (IOException ex)
+			{
+				Log.Error(ex, "Error copying files.");
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				Log.Error(ex, "Permission denied.");
+			}
+			catch (Exception ex)
+			{
+				Log.Error(ex, "Unexpected error.");
+			}
+		}
 	}
 
 	private static void DeleteFiles(string sourceFolderPath, string replicaFolderPath)
