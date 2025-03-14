@@ -1,5 +1,5 @@
-﻿using System.IO;
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using System.IO;
 using Serilog;
 
 class Program
@@ -32,7 +32,7 @@ class Program
 		}
 		catch (Exception ex)
 		{
-			Log.Fatal(ex, "Application error.");
+			Log.Error(ex, "Unexpected error.");
 		}
 		finally
 		{
