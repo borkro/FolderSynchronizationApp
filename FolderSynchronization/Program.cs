@@ -30,6 +30,10 @@ class Program
 			string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
 			Log.Information($"Runtime: {elapsedTime}.");
 		}
+		catch (DirectoryNotFoundException ex)
+		{
+			Log.Error(ex, "Directory not found.");
+		}
 		catch (Exception ex)
 		{
 			Log.Error(ex, "Unexpected error.");
