@@ -1,34 +1,44 @@
-﻿using System.Diagnostics;
-using System.IO;
+﻿using System.IO;
 using Serilog;
 
 class Program
 {
+	private static string sourceFolderPath;
+	private static string replicaFolderPath;
+	private static Timer timer;
+	private static int syncInterval;
+
 	static void Main(string[] args)
 	{
+		if (args.Length < 3)
+		{
+			Console.WriteLine("Usage: FolderSynchronization.exe log_file_path source_folder_path replica_folder_path synchronization_interval_in_ms");
+			return;
+		}
+
 		try
 		{
-			if (args.Length < 2)
-			{
-				Console.WriteLine("Usage: program.exe <logFilePath> <sourceFolderPath> <replicaFolderPath>");
-				return;
-			}
-
 			Log.Logger = new LoggerConfiguration()
 				.WriteTo.Console()
 				.WriteTo.File(args[0], rollingInterval: RollingInterval.Day)
 				.CreateLogger();
 
-			Stopwatch sw = new Stopwatch();
-			sw.Start();
+			sourceFolderPath = args[1];
+			replicaFolderPath = args[2];
+			syncInterval = int.Parse(args[3]);
 
-			Sync(args[1], args[2]);
+			Log.Information($"Source Folder: {sourceFolderPath}");
+			Log.Information($"Replica Folder: {replicaFolderPath}");
+			Log.Information($"Synchronization Interval: {syncInterval} ms.");
 
-			sw.Stop();
-			TimeSpan ts = sw.Elapsed;
+			timer = new Timer(Sync, null, 0, syncInterval);
 
-			string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
-			Log.Information($"Runtime: {elapsedTime}.");
+			Console.WriteLine("Synchronization running... Press Enter to exit.");
+			Console.ReadLine();
+		}
+		catch (FormatException)
+		{
+			Log.Error("Invalid synchronization interval. Should be a time interval in [ms].");
 		}
 		catch (DirectoryNotFoundException ex)
 		{
@@ -40,18 +50,17 @@ class Program
 		}
 		finally
 		{
+			timer.Dispose();
 			Log.CloseAndFlush();
 		}
 	}
 
-	private static void Sync(string sourceFolderPath, string replicaFolderPath)
+	private static void Sync(object state)
 	{
 		if (!Directory.Exists(sourceFolderPath))
 		{
 			throw new DirectoryNotFoundException($"Source folder not found: {sourceFolderPath}");
 		}
-		Log.Information($"Source Folder: {sourceFolderPath}");
-		Log.Information($"Replica Folder: {replicaFolderPath}");
 		Log.Information($"Synchronizing...");
 		SyncFolders(sourceFolderPath, replicaFolderPath);
 		Log.Information($"Synchronization complete!");
@@ -65,9 +74,16 @@ class Program
 			{
 				string fileName = Path.GetFileName(sourceFilePath);
 				string replicaFilePath = Path.Combine(replicaFolderPath, fileName);
-				Log.Information($"Copying file {fileName}...");
-				File.Copy(sourceFilePath, replicaFilePath, true);
-				Log.Information($"Copied file {fileName}!");
+				if (!File.Exists(replicaFilePath) || File.GetLastWriteTime(sourceFilePath) > File.GetLastWriteTime(replicaFilePath))
+				{
+					Log.Information($"Copying file {fileName}...");
+					File.Copy(sourceFilePath, replicaFilePath, true);
+					Log.Information($"Copied file {fileName}!");
+				}
+				else
+				{
+					Log.Information($"File {fileName} unchanged.");
+				}
 			}
 		}
 		catch (IOException ex)
