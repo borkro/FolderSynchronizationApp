@@ -97,24 +97,9 @@ class Program
 		{
 			string subfolderName = Path.GetFileName(sourceSubfolderPath);
 			string replicaSubfolderPath = Path.Combine(replicaFolderPath, subfolderName);
-			try
-			{
-				Log.Information($"Copying folder {subfolderName}...");
-				SyncFolders(sourceSubfolderPath, replicaSubfolderPath);
-				Log.Information($"Copied folder {subfolderName}!");
-			}
-			catch (IOException ex)
-			{
-				Log.Error(ex, "Error copying folder.");
-			}
-			catch (UnauthorizedAccessException ex)
-			{
-				Log.Error(ex, "Permission denied.");
-			}
-			catch (Exception ex)
-			{
-				Log.Error(ex, "Unexpected error.");
-			}
+			Log.Information($"Copying folder {subfolderName}...");
+			SyncFolders(sourceSubfolderPath, replicaSubfolderPath);
+			Log.Information($"Copied folder {subfolderName}!");
 		}
 	}
 
