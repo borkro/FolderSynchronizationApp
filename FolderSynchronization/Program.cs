@@ -112,10 +112,10 @@ class Program
 
 		foreach (string sourceFilePath in Directory.GetFiles(sourceFolderPath))
 		{
-			FileInfo sourceFileInfo = new FileInfo(sourceFilePath);
+			FileInfo sourceFileInfo = new(sourceFilePath);
 			string fileName = sourceFileInfo.Name;
 			string replicaFilePath = Path.Combine(replicaFolderPath, fileName);
-			FileInfo replicaFileInfo = new FileInfo(replicaFilePath);
+			FileInfo replicaFileInfo = new(replicaFilePath);
 			try
 			{
 				if (!replicaFileInfo.Exists || sourceFileInfo.Length < hashThreshold)
@@ -218,8 +218,8 @@ class Program
 		using (var md5 = MD5.Create())
 		using (var stream = File.OpenRead(filePath))
 		{
-			byte[] hash = md5.ComputeHash(stream);
-			return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+			byte[] md5Hash = md5.ComputeHash(stream);
+			return Convert.ToHexStringLower(md5Hash);
 		}
 	}
 }
