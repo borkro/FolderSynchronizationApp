@@ -131,22 +131,12 @@ class Program
 			FileInfo replicaFileInfo = new(replicaFilePath);
 			try
 			{
+				Log.Information($"Copying file {fileName}...");
 				if (!replicaFileInfo.Exists || sourceFileInfo.Length < hashThreshold)
-				{
-					Log.Information($"Copying file {fileName}...");
 					File.Copy(sourceFilePath, replicaFilePath, true);
-					Log.Information($"Copied file {fileName}!");
-				}
 				else if (CalcMD5(sourceFilePath) != CalcMD5(replicaFilePath))
-				{
-					Log.Information($"Copying file {fileName}...");
 					File.Copy(sourceFilePath, replicaFilePath, true);
-					Log.Information($"Copied file {fileName}!");
-				}
-				else
-				{
-					Log.Information($"File {fileName} didn't change.");
-				}
+				Log.Information($"Copied file {fileName}!");
 			}
 			catch (IOException ex)
 			{
