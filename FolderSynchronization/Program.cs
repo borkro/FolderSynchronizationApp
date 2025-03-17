@@ -12,9 +12,9 @@ class Program
 
 	static void Main(string[] args)
 	{
-		if (args.Length < 3)
+		if (args.Length < 4)
 		{
-			Console.WriteLine("Usage: FolderSynchronization.exe log_file_path source_folder_path replica_folder_path synchronization_interval_in_ms");
+			Console.WriteLine("Usage: FolderSynchronization.exe log_file_path source_folder_path replica_folder_path sync_interval_in_ms");
 			return;
 		}
 
@@ -42,7 +42,7 @@ class Program
 		}
 		catch (FormatException ex)
 		{
-			Log.Error(ex, "Invalid synchronization interval. Should be a positive integer in [ms].");
+			Log.Error(ex, "Invalid synchronization interval. Should be a positive integer [ms].");
 		}
 		catch (DirectoryNotFoundException ex)
 		{
