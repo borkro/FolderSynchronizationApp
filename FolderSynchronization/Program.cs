@@ -1,4 +1,11 @@
-﻿using System.IO;
+﻿/*
+ * Periodic Folder Synchronization Program
+ * Author: Borivoj Kronowetter
+ * Created: 13.03.2025
+ *
+ */
+
+using System.IO;
 using System.Security.Cryptography;
 using Serilog;
 
