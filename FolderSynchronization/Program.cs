@@ -34,8 +34,11 @@ class Program
 			source = args[1];
 			replica = args[2];
 			int syncInterval = int.Parse(args[3]);
+
 			if (syncInterval <= 0)
 				throw new FormatException();
+			if (!Directory.Exists(source))
+				throw new DirectoryNotFoundException($"Source folder not found: {source}");
 
 			Log.Information($"Source Folder: {source}");
 			Log.Information($"Replica Folder: {replica}");
@@ -49,15 +52,15 @@ class Program
 		}
 		catch (FormatException ex)
 		{
-			Log.Error(ex, "Invalid synchronization interval. Should be a positive integer [ms].");
+			Log.Fatal(ex, "Invalid synchronization interval. Should be a positive integer [ms].");
 		}
 		catch (DirectoryNotFoundException ex)
 		{
-			Log.Error(ex, "Directory not found.");
+			Log.Fatal(ex, "Directory not found.");
 		}
 		catch (Exception ex)
 		{
-			Log.Error(ex, "Unexpected error.");
+			Log.Fatal(ex, "Unexpected error.");
 		}
 		finally
 		{
@@ -72,11 +75,8 @@ class Program
 			Log.Warning("Previous synchronization is still running. Skipping this interval.");
 			return;
 		}
+
 		syncingBool = true;
-		if (!Directory.Exists(source))
-		{
-			throw new DirectoryNotFoundException($"Source folder not found: {source}");
-		}
 		Log.Information($"Synchronizing...");
 		SyncFolders(source, replica);
 		Log.Information($"Synchronization complete!");
@@ -90,22 +90,21 @@ class Program
 		{
 			if (!Directory.Exists(replicaFolderPath))
 			{
-				Log.Information($"Creating folder {replicaFolderPath}...");
 				Directory.CreateDirectory(replicaFolderPath);
 				Log.Information($"Created folder {replicaFolderPath}!");
 			}
 		}
 		catch (IOException ex)
 		{
-			Log.Error(ex, "Error copying folder.");
+			Log.Error(ex, $"Error copying folder {sourceFolderPath}.");
 		}
 		catch (UnauthorizedAccessException ex)
 		{
-			Log.Error(ex, "Permission denied.");
+			Log.Error(ex, $"Permission denied while copying folder {sourceFolderPath}.");
 		}
 		catch (Exception ex)
 		{
-			Log.Error(ex, "Unexpected error.");
+			Log.Error(ex, $"Unexpected error copying folder {sourceFolderPath}.");
 		}
 		SyncFiles(sourceFolderPath, replicaFolderPath);
 		DeleteFiles(sourceFolderPath, replicaFolderPath);
@@ -114,7 +113,6 @@ class Program
 		{
 			string subfolderName = Path.GetFileName(sourceSubfolderPath);
 			string replicaSubfolderPath = Path.Combine(replicaFolderPath, subfolderName);
-			Log.Information($"Copying folder {subfolderName}...");
 			SyncFolders(sourceSubfolderPath, replicaSubfolderPath);
 			Log.Information($"Copied folder {subfolderName}!");
 		}
@@ -131,24 +129,28 @@ class Program
 			FileInfo replicaFileInfo = new(replicaFilePath);
 			try
 			{
-				Log.Information($"Copying file {fileName}...");
-				if (!replicaFileInfo.Exists || sourceFileInfo.Length < hashThreshold)
+				if (!replicaFileInfo.Exists)
+				{
+					File.Copy(sourceFilePath, replicaFilePath);
+					Log.Information($"Created file {fileName}!");
+				}
+				else if (sourceFileInfo.Length < hashThreshold || CalcMD5(sourceFilePath) != CalcMD5(replicaFilePath))
+				{
 					File.Copy(sourceFilePath, replicaFilePath, true);
-				else if (CalcMD5(sourceFilePath) != CalcMD5(replicaFilePath))
-					File.Copy(sourceFilePath, replicaFilePath, true);
+				}
 				Log.Information($"Copied file {fileName}!");
 			}
 			catch (IOException ex)
 			{
-				Log.Error(ex, "Error copying files.");
+				Log.Error(ex, $"Error copying files {fileName}.");
 			}
 			catch (UnauthorizedAccessException ex)
 			{
-				Log.Error(ex, "Permission denied.");
+				Log.Error(ex, $"Permission denied while copying file {fileName}.");
 			}
 			catch (Exception ex)
 			{
-				Log.Error(ex, "Unexpected error.");
+				Log.Error(ex, $"Unexpected error copying file {fileName}.");
 			}
 		}
 	}
@@ -170,15 +172,15 @@ class Program
 				}
 				catch (IOException ex)
 				{
-					Log.Error(ex, "Error deleting file.");
+					Log.Error(ex, $"Error deleting file {fileName}.");
 				}
 				catch (UnauthorizedAccessException ex)
 				{
-					Log.Error(ex, "Permission denied.");
+					Log.Error(ex, $"Permission denied while deleting file {fileName}.");
 				}
 				catch (Exception ex)
 				{
-					Log.Error(ex, "Unexpected error.");
+					Log.Error(ex, $"Unexpected error deleting file {fileName}.");
 				}
 			}
 		}
@@ -196,21 +198,20 @@ class Program
 			{
 				try
 				{
-					Log.Information($"Deleting folder {subfolderName}...");
 					Directory.Delete(replicaSubfolderPath, true);
 					Log.Information($"Deleted folder {subfolderName}!");
 				}
 				catch (IOException ex)
 				{
-					Log.Error(ex, "Error deleting folder.");
+					Log.Error(ex, $"Error deleting folder {subfolderName}.");
 				}
 				catch (UnauthorizedAccessException ex)
 				{
-					Log.Error(ex, "Permission denied.");
+					Log.Error(ex, $"Permission denied while deleting folder {subfolderName}.");
 				}
 				catch (Exception ex)
 				{
-					Log.Error(ex, "Unexpected error.");
+					Log.Error(ex, $"Unexpected error deleting folder {subfolderName}.");
 				}
 			}
 		}
