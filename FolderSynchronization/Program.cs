@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Security.Cryptography;
 using Serilog;
 
 class Program
@@ -7,6 +8,7 @@ class Program
 	private static string replica;
 	private static Timer timer;
 	private static int syncInterval;
+	private const long hashThreshold = 10 * 1024 * 1024;
 
 	static void Main(string[] args)
 	{
@@ -26,6 +28,8 @@ class Program
 			source = args[1];
 			replica = args[2];
 			syncInterval = int.Parse(args[3]);
+			if (syncInterval <= 0)
+				throw new FormatException();
 
 			Log.Information($"Source Folder: {source}");
 			Log.Information($"Replica Folder: {replica}");
@@ -36,9 +40,9 @@ class Program
 			Console.WriteLine("Synchronization running... Press Enter to exit.");
 			Console.ReadLine();
 		}
-		catch (FormatException)
+		catch (FormatException ex)
 		{
-			Log.Error("Invalid synchronization interval. Should be a time interval in [ms].");
+			Log.Error(ex, "Invalid synchronization interval. Should be a positive integer in [ms].");
 		}
 		catch (DirectoryNotFoundException ex)
 		{
@@ -108,11 +112,19 @@ class Program
 
 		foreach (string sourceFilePath in Directory.GetFiles(sourceFolderPath))
 		{
-			string fileName = Path.GetFileName(sourceFilePath);
+			FileInfo sourceFileInfo = new FileInfo(sourceFilePath);
+			string fileName = sourceFileInfo.Name;
 			string replicaFilePath = Path.Combine(replicaFolderPath, fileName);
+			FileInfo replicaFileInfo = new FileInfo(replicaFilePath);
 			try
 			{
-				if (!File.Exists(replicaFilePath) || File.GetLastWriteTime(sourceFilePath) > File.GetLastWriteTime(replicaFilePath))
+				if (!replicaFileInfo.Exists || sourceFileInfo.Length < hashThreshold)
+				{
+					Log.Information($"Copying file {fileName}...");
+					File.Copy(sourceFilePath, replicaFilePath, true);
+					Log.Information($"Copied file {fileName}!");
+				}
+				else if (CalcMD5(sourceFilePath) != CalcMD5(replicaFilePath))
 				{
 					Log.Information($"Copying file {fileName}...");
 					File.Copy(sourceFilePath, replicaFilePath, true);
@@ -120,7 +132,7 @@ class Program
 				}
 				else
 				{
-					Log.Information($"File {fileName} unchanged.");
+					Log.Information($"File {fileName} didn't change.");
 				}
 			}
 			catch (IOException ex)
@@ -199,6 +211,15 @@ class Program
 				}
 			}
 		}
+	}
 
+	private static string CalcMD5(string filePath)
+	{
+		using (var md5 = MD5.Create())
+		using (var stream = File.OpenRead(filePath))
+		{
+			byte[] hash = md5.ComputeHash(stream);
+			return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+		}
 	}
 }
