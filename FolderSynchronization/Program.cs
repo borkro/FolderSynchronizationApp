@@ -4,11 +4,10 @@ using Serilog;
 
 class Program
 {
-	private static string source;
-	private static string replica;
-	private static Timer timer;
-	private static int syncInterval;
-	private const long hashThreshold = 10 * 1024 * 1024;
+	private static string source = "";
+	private static string replica = "";
+	private static bool syncingBool = false;
+	private const long hashThreshold = 10 * 1024 * 1024; // 10 MB hashing threshold
 
 	static void Main(string[] args)
 	{
@@ -27,7 +26,7 @@ class Program
 
 			source = args[1];
 			replica = args[2];
-			syncInterval = int.Parse(args[3]);
+			int syncInterval = int.Parse(args[3]);
 			if (syncInterval <= 0)
 				throw new FormatException();
 
@@ -35,10 +34,11 @@ class Program
 			Log.Information($"Replica Folder: {replica}");
 			Log.Information($"Synchronization Interval: {syncInterval} ms.");
 
-			timer = new Timer(Sync, null, 0, syncInterval);
+			Timer timer = new(Sync, null, 0, syncInterval);
 
 			Console.WriteLine("Synchronization running... Press Enter to exit.");
 			Console.ReadLine();
+			timer.Dispose();
 		}
 		catch (FormatException ex)
 		{
@@ -54,13 +54,18 @@ class Program
 		}
 		finally
 		{
-			timer.Dispose();
 			Log.CloseAndFlush();
 		}
 	}
 
-	private static void Sync(object state)
+	private static void Sync(object? state)
 	{
+		if (syncingBool)
+		{
+			Log.Warning("Previous synchronization is still running. Skipping this interval.");
+			return;
+		}
+		syncingBool = true;
 		if (!Directory.Exists(source))
 		{
 			throw new DirectoryNotFoundException($"Source folder not found: {source}");
@@ -68,6 +73,7 @@ class Program
 		Log.Information($"Synchronizing...");
 		SyncFolders(source, replica);
 		Log.Information($"Synchronization complete!");
+		syncingBool = false;
 	}
 
 	private static void SyncFolders(string sourceFolderPath, string replicaFolderPath)
